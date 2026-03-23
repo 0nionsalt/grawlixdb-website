@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GrawlixDB.TF</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__title">GrawlixDB.TF</div>
+          <div class="brand__subtitle">Local browser database (localStorage)</div>
+        </div>
+        <div class="topbar__actions">
+          <button class="btn btn--primary" id="btnAdd">Submit</button>
+          <img src="./assets/steam_signin.png" alt="Sign in with Steam" id="btnSteamLogin" class="btn btn--steam-img" style="cursor: pointer; height: 48px; border-radius: 4px;">
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="panel panel--search">
+          <div class="field">
+            <label class="field__label" for="q">Search</label>
+            <input class="input" id="q" placeholder="SteamID, name, alias, notes, server, evidence..." autocomplete="off" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="filterVerdict">Verdict</label>
+            <select class="select" id="filterVerdict">
+              <option value="">Any</option>
+              <option value="suspected">Suspected</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cleared">Cleared</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="sort">Sort</label>
+            <select class="select" id="sort">
+              <option value="updatedDesc">Recently updated</option>
+              <option value="createdDesc">Recently added</option>
+              <option value="nameAsc">Name (A→Z)</option>
+            </select>
+          </div>
+          <div class="panel__meta" id="stats"></div>
+        </section>
+
+        <section class="panel panel--list">
+          <div class="tableWrap">
+            <table class="table" aria-label="Cheater entries">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>SteamID</th>
+                  <th>Verdict</th>
+                  <th>Last seen</th>
+                  <th>Updated</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>
+          Tip: drop your TF2 font into <code>assets/fonts/</code> and name it <code>TF2.ttf</code> (or update the CSS).
+        </div>
+      </footer>
+    </div>
+
+    <div class="modal" id="modal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="modal__backdrop" data-close="1"></div>
+      <div class="modal__panel" role="document">
+        <div class="modal__header">
+          <div class="modal__title" id="modalTitle">Add entry</div>
+          <button class="iconBtn" id="modalClose" aria-label="Close" title="Close">✕</button>
+        </div>
+
+        <form class="modal__body" id="form">
+          <input type="hidden" id="id">
+          <div class="grid">
+            <div class="field">
+              <label class="field__label" for="name">Player Name</label>
+              <input class="input" id="name" placeholder="Enter player name" required />
+            </div>
+            <div class="field">
+              <label class="field__label" for="steamId">SteamID / SteamID64 (optional)</label>
+              <input class="input" id="steamId" placeholder="STEAM_0:1:12345 or 7656..." />
+              <button type="button" class="btn btn--secondary" id="btnFetchProfile" style="margin-top: 8px;">Fetch Steam Profile</button>
+            </div>
+            <div class="field" id="steamProfileInfo" style="display: none;">
+              <div class="steam-profile">
+                <div class="steam-profile__avatar">
+                  <img id="steamAvatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Steam Avatar" style="width: 64px; height: 64px; border-radius: 4px;">
+                </div>
+                <div class="steam-profile__info">
+                  <div><strong>Steam ID64:</strong> <span id="steamId64Display"></span></div>
+                  <div><strong>Profile Name:</strong> <span id="steamName"></span></div>
+                  <div><strong>Profile URL:</strong> <a id="steamProfileUrl" href="#" target="_blank" rel="noopener noreferrer"></a></div>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="verdict">Verdict</label>
+              <select class="select" id="verdict" required>
+                <option value="suspected">Suspected</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cleared">Cleared</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="lastSeen">Last seen (optional)</label>
+              <input class="input" id="lastSeen" placeholder="2026-03-22 or server name" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="aliases">Aliases (comma-separated)</label>
+            <input class="input" id="aliases" placeholder="alt1, alt2" />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="evidence">Evidence links (one per line)</label>
+            <textarea class="textarea" id="evidence" placeholder="https://...
+https://..."></textarea>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="notes">Notes</label>
+            <textarea class="textarea" id="notes" placeholder="What happened? Which server? Which cheats?"></textarea>
+          </div>
+
+          <div class="modal__footer">
+            <div class="left">
+              <button class="btn btn--danger" type="button" id="btnDelete" hidden>Delete</button>
+            </div>
+            <div class="right">
+              <button class="btn" type="button" id="btnCancel">Cancel</button>
+              <button class="btn btn--primary" type="submit" id="btnSave">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="overlay" id="banOverlay" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="overlay__backdrop" data-close="overlay"></div>
+      <div class="overlay__panel" role="document">
+        <div class="overlay__header">
+          <div class="overlay__title" id="overlayTitle">Ban Details</div>
+          <button class="iconBtn" id="overlayClose" aria-label="Close" title="Close">✕</button>
+        </div>
+        <div class="overlay__body" id="overlayBody">
+          <!-- Content will be dynamically inserted -->
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
