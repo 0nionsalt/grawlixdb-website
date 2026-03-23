@@ -1,6 +1,6 @@
 @font-face {
   font-family: "TF2";
-  src: url("./assets/fonts/TF2.ttf") format("truetype");
+  src: url("./assets/fonts/TF2secondary.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -59,6 +59,25 @@ code {
   border-bottom: 1px solid var(--border);
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand__logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .brand__title {
   font-size: 22px;
   line-height: 1.1;
@@ -68,7 +87,7 @@ code {
   margin-top: 4px;
   font-size: 12px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .topbar__actions {
@@ -106,7 +125,7 @@ code {
   grid-column: 1 / -1;
   color: var(--muted);
   font-size: 13px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .panel--list {
@@ -127,7 +146,7 @@ code {
   padding: 12px 14px;
   font-size: 12px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   border-bottom: 1px solid var(--border);
   background: rgba(21, 19, 17, 0.35);
 }
@@ -152,7 +171,7 @@ code {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   border: 1px solid var(--border);
   background: rgba(0,0,0,0.18);
   color: var(--text);
@@ -165,7 +184,7 @@ code {
 .small {
   color: var(--muted);
   font-size: 12px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .field {
@@ -177,7 +196,7 @@ code {
 .field__label {
   font-size: 12px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .input, .select, .textarea {
@@ -188,12 +207,13 @@ code {
   border-radius: 12px;
   padding: 10px 12px;
   outline: none;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .textarea {
   min-height: 84px;
   resize: vertical;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   letter-spacing: 0.1px;
 }
 
@@ -211,7 +231,7 @@ code {
   padding: 10px 12px;
   cursor: pointer;
   font-size: 13px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .btn:hover {
@@ -247,7 +267,7 @@ code {
   border-radius: 10px;
   padding: 8px 10px;
   cursor: pointer;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .footer {
@@ -255,7 +275,7 @@ code {
   margin: 0 auto 16px;
   color: var(--muted);
   font-size: 12px;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: "TF2", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
 .modal {

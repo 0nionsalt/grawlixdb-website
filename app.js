@@ -1,6 +1,29 @@
 const STORAGE_KEY = "tf2CheaterDb.entries.v1";
 const STEAM_API_KEY = "697576621005E7075600828CE6273B4F";
 
+// Random logo functionality
+function initRandomLogo() {
+  const logos = [
+    { image: './assets/red_bot.png', favicon: './assets/favicons/red_bot.ico' },
+    { image: './assets/blu_bot.png', favicon: './assets/favicons/blu_bot.ico' }
+  ];
+  
+  const randomIndex = Math.floor(Math.random() * logos.length);
+  const selectedLogo = logos[randomIndex];
+  
+  // Update navbar logo
+  const brandLogoImg = document.querySelector('.brand__logo-img');
+  if (brandLogoImg) {
+    brandLogoImg.src = selectedLogo.image;
+  }
+  
+  // Update favicon
+  const favicon = document.getElementById('favicon');
+  if (favicon) {
+    favicon.href = selectedLogo.favicon;
+  }
+}
+
 // Supabase configuration
 const SUPABASE_URL = 'https://your-project-id.supabase.co';
 const SUPABASE_ANON_KEY = 'your-anon-key';
@@ -846,5 +869,8 @@ el.form.addEventListener("submit", async (ev) => {
   };
   saveEntries([sample]);
 })();
+
+// Initialize random logo on page load
+initRandomLogo();
 
 render();
