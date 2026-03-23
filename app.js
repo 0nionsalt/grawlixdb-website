@@ -1,5 +1,5 @@
 const STORAGE_KEY = "tf2CheaterDb.entries.v1";
-const STEAM_API_KEY = "BB6D85E1997DB58ACD9474D18DF145B2";
+const STEAM_API_KEY = "697576621005E7075600828CE6273B4F";
 
 // Supabase configuration
 const SUPABASE_URL = 'https://your-project-id.supabase.co';
@@ -48,49 +48,39 @@ async function fetchSteamProfile(steamId) {
     return null;
   }
 
-  // Try multiple proxy options
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`)}`,
-    `https://corsproxy.io/?${encodeURIComponent(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`)}`,
-    `https://cors-anywhere.herokuapp.com/${encodeURIComponent(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`)}`
-  ];
-
-  for (let i = 0; i < proxies.length; i++) {
-    try {
-      const proxyUrl = proxies[i];
-      console.log(`Trying proxy ${i + 1}:`, proxyUrl);
-      
-      const response = await fetch(proxyUrl);
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Steam API response:', data);
-      
-      if (data.response && data.response.players && data.response.players.length > 0) {
-        const player = data.response.players[0];
-        console.log('Player data:', player);
-        return {
-          steamId64: steamId64,
-          personaName: player.personaname,
-          avatarUrl: player.avatarfull,
-          profileUrl: player.profileurl,
-          realName: player.realname || null,
-          location: player.loccountrycode || null
-        };
-      } else {
-        console.log('No player data found in response');
-      }
-    } catch (error) {
-      console.error(`Proxy ${i + 1} failed:`, error);
-      if (i === proxies.length - 1) {
-        // All proxies failed
-        alert('All CORS proxies failed. Steam API requires server-side access.\n\nSolutions:\n1. Set up a backend proxy server\n2. Use browser extension to disable CORS (dev only)\n3. Deploy to a server with proper CORS handling\n\nFor now, please manually enter profile information.');
-      }
+  // Use local proxy server
+  const proxyUrl = `http://localhost:3001/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`;
+  
+  try {
+    console.log('Using local proxy:', proxyUrl);
+    
+    const response = await fetch(proxyUrl);
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+    const data = await response.json();
+    console.log('Steam API response:', data);
+    
+    if (data.response && data.response.players && data.response.players.length > 0) {
+      const player = data.response.players[0];
+      console.log('Player data:', player);
+      return {
+        steamId64: steamId64,
+        personaName: player.personaname,
+        avatarUrl: player.avatarfull,
+        profileUrl: player.profileurl,
+        realName: player.realname || null,
+        location: player.loccountrycode || null
+      };
+    } else {
+      console.log('No player data found in response');
+    }
+  } catch (error) {
+    console.error('Steam API fetch failed:', error);
+    alert('Failed to fetch Steam profile. Please make sure:\n\n1. The proxy server is running on port 3001\n2. Your Steam API key is valid\n3. The SteamID format is correct\n\nStart the server with: npm start\n\nCheck browser console for more details.');
   }
   return null;
 }
