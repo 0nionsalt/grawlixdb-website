@@ -14,7 +14,7 @@
           <div class="brand__logo" id="brandLogo">
             <img src="./assets/red_bot.png" alt="GrawlixDB.TF Logo" class="brand__logo-img">
           </div>
-          <div class="brand__subtitle">Local browser database (localStorage)</div>
+          <div class="brand__subtitle">Tracking cheaters and bots.</div>
         </div>
         <div class="topbar__actions">
           <button class="btn btn--primary" id="btnAdd">Submit</button>
@@ -69,7 +69,7 @@
 
       <footer class="footer">
         <div>
-          Tip: drop your TF2 font into <code>assets/fonts/</code> and name it <code>TF2.ttf</code> (or update the CSS).
+          Join our <a href="https://steamcommunity.com/groups/GrawlixTF" target="_blank" rel="noopener noreferrer">Steam Group</a> for updates and community discussions.
         </div>
       </footer>
     </div>
@@ -126,9 +126,10 @@
           </div>
 
           <div class="field">
-            <label class="field__label" for="evidence">Evidence links (one per line)</label>
-            <textarea class="textarea" id="evidence" placeholder="https://...
-https://..."></textarea>
+            <label class="field__label" for="evidence">Evidence Files (.mp4, .dem)</label>
+            <input type="file" id="evidence" accept=".mp4,.dem" multiple>
+            <div class="small">Upload video (.mp4) or demo (.dem) files as evidence</div>
+            <div id="evidencePreview" class="evidence-preview"></div>
           </div>
 
           <div class="field">

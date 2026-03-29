@@ -156,10 +156,39 @@ function parseAliases(raw) {
 }
 
 function parseEvidence(raw) {
-  return normalize(raw)
-    .split("\n")
-    .map((x) => x.trim())
-    .filter(Boolean);
+  // For file uploads, raw will be an array of file objects
+  if (Array.isArray(raw)) {
+    return raw.map(file => {
+      // Handle both File objects and our custom file objects
+      if (file instanceof File) {
+        return {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified,
+          data: null // Don't store file data in localStorage to avoid quota exceeded
+        };
+      } else {
+        // Handle our custom file objects (from existing entries)
+        return {
+          name: file.name || 'Unknown file',
+          size: file.size || 0,
+          type: file.type || 'unknown',
+          lastModified: file.lastModified || Date.now(),
+          data: null // Clear data to avoid storage issues
+        };
+      }
+    });
+  }
+  return [];
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function formatDateTime(iso) {
@@ -343,6 +372,7 @@ const el = {
   lastSeen: document.getElementById("lastSeen"),
   aliases: document.getElementById("aliases"),
   evidence: document.getElementById("evidence"),
+  evidencePreview: document.getElementById("evidencePreview"),
   notes: document.getElementById("notes"),
 
   btnFetchProfile: document.getElementById("btnFetchProfile"),
@@ -362,6 +392,84 @@ if (!el.btnAdd) {
   alert("Init error: #btnAdd not found in DOM. Make sure you're opening the right index.html.");
 }
 
+let currentFiles = [];
+
+function updateEvidencePreview() {
+  el.evidencePreview.innerHTML = '';
+  
+  currentFiles.forEach((file, index) => {
+    const fileDiv = document.createElement('div');
+    fileDiv.className = 'evidence-file';
+    
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'evidence-file__info';
+    
+    const fileName = document.createElement('span');
+    fileName.className = 'evidence-file__name';
+    fileName.textContent = file.name;
+    
+    const fileSize = document.createElement('span');
+    fileSize.className = 'evidence-file__size';
+    fileSize.textContent = formatFileSize(file.size);
+    
+    fileInfo.appendChild(fileName);
+    fileInfo.appendChild(fileSize);
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'evidence-file__remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => removeFile(index);
+    
+    fileDiv.appendChild(fileInfo);
+    fileDiv.appendChild(removeBtn);
+    el.evidencePreview.appendChild(fileDiv);
+  });
+}
+
+function removeFile(index) {
+  currentFiles.splice(index, 1);
+  updateEvidencePreview();
+}
+
+function viewDemoInDribble(file) {
+// For demo files, we can open them in dribble.tf
+if (file.name.toLowerCase().endsWith('.dem')) {
+  // Since we can't store the actual file data due to localStorage limits,
+  // we'll open dribble.tf and let the user upload the file manually
+  alert(`To view this demo file:\n\n1. Open dribble.tf in a new tab\n2. Upload the file "${file.name}" manually\n\nThis is required because demo files are too large to store in browser storage.`);
+  window.open('https://dribble.tf/', '_blank');
+} else {
+  alert('Only .dem files can be viewed in the demo player.');
+}
+}
+
+function downloadDemo(file) {
+// Create a download link for the demo file
+const link = document.createElement('a');
+link.href = file.data || '#';
+link.download = file.name;
+link.style.display = 'none';
+document.body.appendChild(link);
+  
+if (file.data) {
+  // If we have the file data, trigger download
+  link.click();
+  document.body.removeChild(link);
+} else {
+  // If we don't have the file data (localStorage issue), show message
+  alert(`Unable to download "${file.name}".\n\nThe original file is not available because demo files are too large to store in browser storage.\n\nPlease use the "View Demo" button to open the file in dribble.tf.`);
+}
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function openModal(mode, entry) {
   el.modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -373,6 +481,11 @@ function openModal(mode, entry) {
   el.steamName.textContent = "";
   el.steamProfileUrl.href = "#";
   el.steamProfileUrl.textContent = "";
+  
+  // Reset files and clear file input
+  currentFiles = [];
+  updateEvidencePreview();
+  el.evidence.value = ''; // Clear the file input
   
   // Reset name field
   el.name.value = "";
@@ -387,8 +500,24 @@ function openModal(mode, entry) {
     el.verdict.value = entry.verdict ?? "suspected";
     el.lastSeen.value = entry.lastSeen ?? "";
     el.aliases.value = (entry.aliases ?? []).join(", ");
-    el.evidence.value = (entry.evidence ?? []).join("\n");
     el.notes.value = entry.notes ?? "";
+    
+    // Handle existing evidence files
+    if (entry.evidence && entry.evidence.length > 0) {
+      // For existing entries, show file names but don't allow editing
+      currentFiles = entry.evidence.map(evidence => ({
+        name: evidence.name || 'Unknown file',
+        size: evidence.size || 0,
+        type: evidence.type || 'unknown',
+        lastModified: evidence.lastModified || Date.now(),
+        data: evidence.data || null
+      }));
+      updateEvidencePreview();
+    } else {
+      // Reset files for new entries
+      currentFiles = [];
+      updateEvidencePreview();
+    }
     
     // Display existing Steam profile data if available
     if (entry.steamProfile) {
@@ -404,7 +533,6 @@ function openModal(mode, entry) {
   el.verdict.value = "suspected";
   el.lastSeen.value = "";
   el.aliases.value = "";
-  el.evidence.value = "";
   el.notes.value = "";
 }
 
@@ -482,16 +610,26 @@ function closeBanOverlay() {
 }
 
 function buildBanDetailsContent(entry) {
+  console.log('Building ban details for entry:', entry);
+  console.log('Entry evidence:', entry.evidence);
   const sections = [];
   
   sections.push(`
     <div class="ban-detail-section">
       <div class="ban-detail-title">Player Information</div>
-      <div class="ban-detail-content">
-        <div><strong>Name:</strong> ${escapeHtml(entry.name ?? "")}</div>
-        ${entry.steamId ? `<div><strong>SteamID:</strong> ${escapeHtml(entry.steamId)}</div>` : ''}
-        <div><strong>Verdict:</strong> <span class="${badgeClass(entry.verdict)}">${entry.verdict ?? "suspected"}</span></div>
-        ${entry.aliases?.length ? `<div><strong>Aliases:</strong> ${escapeHtml(entry.aliases.join(", "))}</div>` : ''}
+      <div class="ban-detail-content ban-detail-content--with-watch">
+        <div class="player-info-main">
+          <div><strong>Name:</strong> ${escapeHtml(entry.name ?? "")}</div>
+          ${entry.steamId ? `<div><strong>SteamID:</strong> ${escapeHtml(entry.steamId)}</div>` : ''}
+          <div><strong>Verdict:</strong> <span class="${badgeClass(entry.verdict)}">${entry.verdict ?? "suspected"}</span></div>
+          ${entry.aliases?.length ? `<div><strong>Aliases:</strong> ${escapeHtml(entry.aliases.join(", "))}</div>` : ''}
+        </div>
+        
+        <div class="watch-user-section">
+          <button class="btn btn--primary btn--small" onclick="handleWatchUser('${escapeHtml(entry.name ?? "")}', '${escapeHtml(entry.steamId ?? "")}', '${entry.id}')">
+            Watch User
+          </button>
+        </div>
       </div>
     </div>
   `);
@@ -512,88 +650,65 @@ function buildBanDetailsContent(entry) {
     <div class="ban-detail-section">
       <div class="ban-detail-title">Community Bans</div>
       <div class="ban-detail-content">
-        <div class="community-bans-alert community-bans-alert--warning">
-          <div class="community-bans-alert__icon">⚠️</div>
-          <div class="community-bans-alert__text">Possible Cheater Keywords: cheat</div>
-        </div>
-        <div class="community-bans-alert community-bans-alert--info">
-          <div class="community-bans-alert__icon">ℹ️</div>
-          <div class="community-bans-alert__text">Group membership bans are not direct evidence of cheating, but rather a community stance.</div>
-        </div>
-        
-        <div class="community-bans-categories">
-          <div class="community-bans-category">
-            <div class="community-bans-category__header">
-              <h4>TF2BD</h4>
-            </div>
-            <div class="community-bans-category__content">
-              <div class="community-ban-entry">
-                <div class="community-ban-entry__info">
-                  <div class="community-ban-entry__name">Vorobey-HackerPolice</div>
-                  <div class="community-ban-entry__details">1 proof entry attached</div>
-                </div>
-                <div class="community-ban-entry__status">
-                  <span class="community-ban-tag community-ban-tag--cheater">Cheater</span>
-                  <div class="community-ban-entry__time">8 months ago</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="community-bans-category">
-            <div class="community-bans-category__header">
-              <h4>SourceBans</h4>
-            </div>
-            <div class="community-bans-category__content">
-              <div class="community-ban-entry">
-                <div class="community-ban-entry__info">
-                  <div class="community-ban-entry__name">LazyPurple.com</div>
-                  <div class="community-ban-entry__details">1 ban</div>
-                </div>
-                <div class="community-ban-entry__status">
-                  <span class="community-ban-tag community-ban-tag--permanent">Permanent</span>
-                  <div class="community-ban-entry__time">9 months ago</div>
-                </div>
-              </div>
-              <div class="community-ban-entry">
-                <div class="community-ban-entry__info">
-                  <div class="community-ban-entry__name">dpg.tf</div>
-                  <div class="community-ban-entry__details">1 ban</div>
-                </div>
-                <div class="community-ban-entry__status">
-                  <span class="community-ban-tag community-ban-tag--permanent">Permanent</span>
-                  <div class="community-ban-entry__time">16 years ago</div>
-                </div>
-              </div>
-              <div class="community-ban-entry">
-                <div class="community-ban-entry__info">
-                  <div class="community-ban-entry__name">UGC-Gaming</div>
-                  <div class="community-ban-entry__details">1 ban</div>
-                </div>
-                <div class="community-ban-entry__status">
-                  <span class="community-ban-tag community-ban-tag--permanent">Permanent</span>
-                  <div class="community-ban-entry__time">9 months ago</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="community-bans-placeholder">
+          <div class="community-bans-placeholder__icon">Search</div>
+          <div class="community-bans-placeholder__text">Nothing has appeared yet...</div>
+          <div class="community-bans-placeholder__subtext">Community ban detection feature coming soon</div>
         </div>
       </div>
     </div>
   `);
   
   if (entry.evidence?.length) {
-    const evidenceLinks = entry.evidence.map(url => 
-      `<li><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></li>`
-    ).join('');
+    console.log('Displaying evidence for entry:', entry.evidence);
+    const evidenceFiles = entry.evidence.map((file, index) => {
+      const fileName = file.name || 'Unknown file';
+      const fileSize = file.size ? formatFileSize(file.size) : 'Unknown size';
+      const fileType = file.type || 'unknown';
+      const isDemoFile = fileName.toLowerCase().endsWith('.dem');
+      
+      return `
+        <li class="evidence-file-item">
+          <div class="evidence-file-item__info">
+            <div class="evidence-file-item__name">${escapeHtml(fileName)}</div>
+            <div class="evidence-file-item__details">${fileSize} • ${fileType}</div>
+          </div>
+          <div class="evidence-file-item__actions">
+            <div class="evidence-file-item__type">
+              ${isDemoFile ? '📹 Demo File' : '🎬 Video File'}
+            </div>
+            ${isDemoFile ? `
+              <div class="evidence-file-buttons">
+                <button class="btn btn--primary btn--small" onclick="viewDemoInDribble(${JSON.stringify(file).replace(/"/g, '&quot;')})">
+                  View Demo
+                </button>
+                <button class="btn btn--secondary btn--small" onclick="downloadDemo(${JSON.stringify(file).replace(/"/g, '&quot;')})">
+                  Download Demo
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </li>
+      `;
+    }).join('');
     
     sections.push(`
       <div class="ban-detail-section">
-        <div class="ban-detail-title">Evidence</div>
+        <div class="ban-detail-title">Evidence Files</div>
         <div class="ban-detail-content">
-          <ul class="evidence-list">
-            ${evidenceLinks}
+          <ul class="evidence-list evidence-list--files">
+            ${evidenceFiles}
           </ul>
+        </div>
+      </div>
+    `);
+  } else {
+    console.log('No evidence found for entry');
+    sections.push(`
+      <div class="ban-detail-section">
+        <div class="ban-detail-title">Evidence Files</div>
+        <div class="ban-detail-content">
+          <div class="small" style="color: var(--muted);">No evidence files uploaded</div>
         </div>
       </div>
     `);
@@ -727,6 +842,40 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
+function handleWatchUser(userName, steamId, entryId) {
+  // Store watched user in localStorage for now
+  const watchedUsers = JSON.parse(localStorage.getItem('watchedUsers') || '[]');
+  
+  // Check if user is already being watched
+  if (watchedUsers.find(user => user.entryId === entryId)) {
+    alert('You are already watching this user!');
+    return;
+  }
+  
+  const watchEntry = {
+    entryId,
+    userName,
+    steamId,
+    watchedAt: new Date().toISOString()
+  };
+  
+  watchedUsers.push(watchEntry);
+  localStorage.setItem('watchedUsers', JSON.stringify(watchedUsers));
+  
+  // Placeholder for Discord webhook functionality
+  console.log('Discord webhook placeholder:', {
+    type: 'user_watched',
+    user: {
+      name: userName,
+      steamId: steamId,
+      entryId: entryId
+    },
+    timestamp: watchEntry.watchedAt
+  });
+  
+  alert(`You are now watching ${userName}!\n\nDiscord webhook notification will be implemented later.`);
+}
+
 function buildShareText(entry) {
   const lines = [];
   lines.push(`Name: ${entry.name ?? ""}`);
@@ -767,6 +916,32 @@ function handleSteamLogin() {
 el.btnAdd.addEventListener("click", () => openModal("add"));
 el.btnSteamLogin.addEventListener("click", handleSteamLogin);
 el.btnFetchProfile.addEventListener("click", handleFetchProfile);
+
+// File input event listener
+el.evidence.addEventListener("change", async (ev) => {
+  const files = Array.from(ev.target.files);
+  // Filter for allowed file types
+  const allowedFiles = files.filter(file => {
+    const extension = file.name.toLowerCase().split('.').pop();
+    return extension === 'mp4' || extension === 'dem';
+  });
+  
+  if (allowedFiles.length !== files.length) {
+    alert('Only .mp4 and .dem files are allowed for evidence.');
+  }
+  
+  // Don't read file data to avoid localStorage quota issues
+  // Just store the file metadata
+  currentFiles = allowedFiles.map(file => ({
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    lastModified: file.lastModified,
+    data: null
+  }));
+  
+  updateEvidencePreview();
+});
 
 el.q.addEventListener("input", render);
 el.filterVerdict.addEventListener("change", render);
@@ -836,12 +1011,15 @@ el.form.addEventListener("submit", async (ev) => {
       verdict: ["suspected", "confirmed", "cleared"].includes(verdict) ? verdict : "suspected",
       lastSeen: normalize(el.lastSeen.value),
       aliases: parseAliases(el.aliases.value),
-      evidence: parseEvidence(el.evidence.value).map(safeUrl).filter(Boolean),
+      evidence: parseEvidence(currentFiles),
       notes: normalize(el.notes.value),
       steamProfile,
       createdAt: existing?.createdAt ?? nowIso(),
       updatedAt: nowIso(),
     };
+
+    console.log('Saving entry with evidence:', entry.evidence);
+    console.log('Current files:', currentFiles);
 
     await upsertEntry(entry);
     closeModal();
