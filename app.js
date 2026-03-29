@@ -62,7 +62,7 @@ function saveEntriesToLocalStorage(entries) {
 
 async function fetchSteamProfile(steamId) {
   console.log('Fetching Steam profile for:', steamId);
-  console.log('🔥 UPDATED VERSION - Using Cloudflare Worker proxy');
+  console.log('🔥 SECURE VERSION - Using Cloudflare Worker proxy');
   
   // Convert SteamID to SteamID64 if needed
   const steamId64 = await convertToSteamId64(steamId);
@@ -77,7 +77,7 @@ async function fetchSteamProfile(steamId) {
   const proxyUrl = `https://nameless-bread-3fcd.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=REMOVED&steamids=${steamId64}`;
   
   try {
-    console.log('Using proxy:', proxyUrl);
+    console.log('Using Cloudflare Worker proxy:', proxyUrl);
     
     const response = await fetch(proxyUrl);
     console.log('Response status:', response.status);
@@ -127,7 +127,7 @@ async function fetchSteamProfile(steamId) {
       errorMessage += '- Try accessing the Worker URL directly in your browser\n';
     } else if (error.message.includes('HTTP 401')) {
       errorMessage += 'Steam API key is invalid or expired\n';
-      errorMessage += 'Please update STEAM_API_KEY in app.js\n';
+      errorMessage += 'Please update STEAM_API_KEY in the Cloudflare Worker\n';
     } else if (error.message.includes('HTTP 429')) {
       errorMessage += 'Steam API rate limit exceeded\n';
       errorMessage += 'Please wait a moment before trying again\n';
@@ -611,7 +611,7 @@ async function handleFetchProfile() {
       displaySteamProfile(profileData);
     } else {
       console.log('Failed to fetch profile - no data returned');
-      alert("Could not fetch Steam profile. Please check:\n\n1. SteamID format (should be STEAM_0:X:Y or 7656... )\n2. Internet connection\n3. Steam API key validity\n\nCheck browser console for details.");
+      alert("Could not fetch Steam profile. Please check:\n\n1. SteamID format (should be STEAM_0:X:Y or 7656... )\n2. Internet connection\n3. Cloudflare Worker is running\n\nCheck browser console for details.");
     }
   } catch (error) {
     console.error('Error in handleFetchProfile:', error);
@@ -946,6 +946,12 @@ function handleSteamLogin() {
   // window.location.href = steamLoginUrl;
 }
 
+// Initialize the app
+document.addEventListener('DOMContentLoaded', () => {
+  initRandomLogo();
+  render();
+});
+
 el.btnAdd.addEventListener("click", () => openModal("add"));
 el.btnSteamLogin.addEventListener("click", handleSteamLogin);
 el.btnFetchProfile.addEventListener("click", handleFetchProfile);
@@ -1002,86 +1008,42 @@ document.addEventListener("keydown", (ev) => {
   }
 });
 
-el.btnDelete.addEventListener("click", () => {
-  const id = normalize(el.id.value);
-  if (!id) return;
-  if (!confirm("Delete this entry?")) return;
-  deleteEntryById(id);
-  closeModal();
-  render();
-});
-
+// Form submission
 el.form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
-
-  try {
-    const existingId = normalize(el.id.value);
-    const entries = await loadEntries();
-    const existing = existingId ? entries.find((e) => e.id === existingId) : null;
-
-    const name = normalize(el.name.value);
-    if (!name) return;
-
-    const verdict = normalize(el.verdict.value) || "suspected";
-    const steamId = normalize(el.steamId.value);
-    
-    // Fetch Steam profile data if SteamID is provided
-    let steamProfile = null;
-    if (steamId && !existing?.steamProfile) {
-      try {
-        steamProfile = await fetchSteamProfile(steamId);
-      } catch (error) {
-        console.error('Error auto-fetching Steam profile:', error);
-      }
-    } else if (existing?.steamProfile) {
-      steamProfile = existing.steamProfile;
-    }
-
-    const entry = {
-      id: existing?.id ?? uid(),
-      name,
-      steamId,
-      verdict: ["suspected", "confirmed", "cleared"].includes(verdict) ? verdict : "suspected",
-      lastSeen: normalize(el.lastSeen.value),
-      aliases: parseAliases(el.aliases.value),
-      evidence: parseEvidence(currentFiles),
-      notes: normalize(el.notes.value),
-      steamProfile,
-      createdAt: existing?.createdAt ?? nowIso(),
-      updatedAt: nowIso(),
-    };
-
-    console.log('Saving entry with evidence:', entry.evidence);
-    console.log('Current files:', currentFiles);
-
-    await upsertEntry(entry);
-    closeModal();
-    await render();
-  } catch (error) {
-    console.error('Error submitting form:', error);
-    alert('Error saving entry: ' + error.message);
-  }
-});
-
-(function seedIfEmpty() {
-  const entries = loadEntries();
-  if (entries.length) return;
-  const sample = {
-    id: uid(),
-    name: "Example: Aimbot Scout",
-    steamId: "STEAM_0:1:12345678",
-    verdict: "suspected",
-    lastSeen: "Uncletopia | 2Fort",
-    aliases: ["SmoothAim", "noSpread?"] ,
-    evidence: [],
-    notes: "Add evidence links and notes here.",
+  
+  const entry = {
+    id: el.id.value || uid(),
+    name: normalize(el.name.value),
+    steamId: normalize(el.steamId.value),
+    verdict: normalize(el.verdict.value),
+    lastSeen: normalize(el.lastSeen.value),
+    aliases: parseAliases(el.aliases.value),
+    evidence: parseEvidence(currentFiles),
+    notes: normalize(el.notes.value),
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
-  saveEntries([sample]);
-})();
 
-// Initialize random logo on page load
-initRandomLogo();
+  try {
+    await upsertEntry(entry);
+    await render();
+    closeModal();
+  } catch (error) {
+    console.error("Error saving entry:", error);
+    alert("Error saving entry. Please try again.");
+  }
+});
 
-render();
+el.btnDelete.addEventListener("click", async () => {
+  if (!confirm("Are you sure you want to delete this entry?")) return;
+  
+  try {
+    await deleteEntryById(el.id.value);
+    await render();
+    closeModal();
+  } catch (error) {
+    console.error("Error deleting entry:", error);
+    alert("Error deleting entry. Please try again.");
+  }
+});

@@ -25,11 +25,13 @@ async function handleRequest(request) {
   if (url.pathname.startsWith('/api/steam/')) {
     try {
       const steamApiPath = url.pathname.replace('/api/steam/', '') + url.search
-      const steamApiUrl = `https://api.steampowered.com/${steamApiPath}`
+      // Replace the placeholder key with the actual Steam API key
+      const steamApiUrl = steamApiPath.replace('key=REMOVED', `key=${STEAM_API_KEY}`)
+      const finalUrl = `https://api.steampowered.com/${steamApiUrl}`
       
-      console.log(`Proxying request to: ${steamApiUrl}`)
+      console.log(`Proxying request to: ${finalUrl.replace(/key=[^&]+/, 'key=***')}`)
       
-      const response = await fetch(steamApiUrl, {
+      const response = await fetch(finalUrl, {
         method: request.method,
         headers: {
           'User-Agent': 'GrawlixDB-Proxy/1.0'
