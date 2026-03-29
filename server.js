@@ -7,9 +7,10 @@ const PORT = process.env.PORT || 3001;
 
 // Enable CORS for all origins
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'file://'],
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'file://', 'https://grawlixdb-website.grawlixcinema.workers.dev', 'https://grawlixdb-website.pages.dev'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Serve static files (your existing HTML, CSS, JS)

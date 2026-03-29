@@ -71,11 +71,11 @@ async function fetchSteamProfile(steamId) {
     return null;
   }
 
-  // Use local proxy server
-  const proxyUrl = `http://localhost:3001/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`;
+  // Use Cloudflare Workers proxy - replace with your actual worker URL
+  const proxyUrl = `https://nameless-bread-3fcd.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`;
   
   try {
-    console.log('Using local proxy:', proxyUrl);
+    console.log('Using proxy:', proxyUrl);
     
     const response = await fetch(proxyUrl);
     console.log('Response status:', response.status);
@@ -103,7 +103,7 @@ async function fetchSteamProfile(steamId) {
     }
   } catch (error) {
     console.error('Steam API fetch failed:', error);
-    alert('Failed to fetch Steam profile. Please make sure:\n\n1. The proxy server is running on port 3001\n2. Your Steam API key is valid\n3. The SteamID format is correct\n\nStart the server with: npm start\n\nCheck browser console for more details.');
+    alert('Failed to fetch Steam profile. Please make sure:\n\n1. The proxy server is running and accessible\n2. Your Steam API key is valid\n3. The SteamID format is correct\n\nCheck browser console for more details.');
   }
   return null;
 }
