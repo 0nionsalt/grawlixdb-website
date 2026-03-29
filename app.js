@@ -104,7 +104,38 @@ async function fetchSteamProfile(steamId) {
     }
   } catch (error) {
     console.error('Steam API fetch failed:', error);
-    alert('Failed to fetch Steam profile. Please make sure:\n\n1. The proxy server is running and accessible\n2. Your Steam API key is valid\n3. The SteamID format is correct\n\nCheck browser console for more details.');
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      steamId: steamId64,
+      proxyUrl: proxyUrl
+    });
+    
+    let errorMessage = 'Failed to fetch Steam profile.\n\n';
+    
+    if (error.message.includes('Failed to fetch')) {
+      errorMessage += 'Network error - possible causes:\n';
+      errorMessage += '1. Cloudflare Worker is not running or accessible\n';
+      errorMessage += '2. Internet connection issues\n';
+      errorMessage += '3. CORS or firewall blocking the request\n';
+      errorMessage += '4. Worker URL is incorrect\n\n';
+      errorMessage += `Worker URL: ${proxyUrl}\n\n`;
+      errorMessage += 'To fix this:\n';
+      errorMessage += '- Check if the Cloudflare Worker is deployed and running\n';
+      errorMessage += '- Verify the Worker URL is correct\n';
+      errorMessage += '- Try accessing the Worker URL directly in your browser\n';
+    } else if (error.message.includes('HTTP 401')) {
+      errorMessage += 'Steam API key is invalid or expired\n';
+      errorMessage += 'Please update STEAM_API_KEY in app.js\n';
+    } else if (error.message.includes('HTTP 429')) {
+      errorMessage += 'Steam API rate limit exceeded\n';
+      errorMessage += 'Please wait a moment before trying again\n';
+    } else {
+      errorMessage += `Error: ${error.message}\n`;
+    }
+    
+    errorMessage += '\nCheck browser console for more details.';
+    alert(errorMessage);
   }
   return null;
 }
