@@ -61,6 +61,7 @@ function saveEntriesToLocalStorage(entries) {
 
 async function fetchSteamProfile(steamId) {
   console.log('Fetching Steam profile for:', steamId);
+  console.log('🔥 UPDATED VERSION - Using Cloudflare Worker proxy');
   
   // Convert SteamID to SteamID64 if needed
   const steamId64 = await convertToSteamId64(steamId);
