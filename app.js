@@ -1,5 +1,6 @@
 const STORAGE_KEY = "tf2CheaterDb.entries.v1";
-const STEAM_API_KEY = "697576621005E7075600828CE6273B4F";
+// Steam API key is now handled by the Cloudflare Worker for security
+// const STEAM_API_KEY = "697576621005E7075600828CE6273B4F";
 
 // Random logo functionality
 function initRandomLogo() {
@@ -72,8 +73,8 @@ async function fetchSteamProfile(steamId) {
     return null;
   }
 
-  // Use Cloudflare Workers proxy - replace with your actual worker URL
-  const proxyUrl = `https://nameless-bread-3fcd.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId64}`;
+  // Use Cloudflare Workers proxy - Steam API key is handled by the Worker
+  const proxyUrl = `https://nameless-bread-3fcd.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=REMOVED&steamids=${steamId64}`;
   
   try {
     console.log('Using proxy:', proxyUrl);
