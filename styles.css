@@ -1017,3 +1017,173 @@ input[type="file"]::-moz-file-upload-button:hover {
     align-self: flex-end;
   }
 }
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  
+  .brand {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .brand__subtitle {
+    display: none;
+  }
+  
+  .topbar__actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .btn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table {
+    font-size: 14px;
+  }
+  
+  .table thead th,
+  .table tbody td {
+    padding: 10px 8px;
+    white-space: nowrap;
+  }
+  
+  .name-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .modal__panel {
+    width: calc(100% - 16px);
+    margin: 10px auto;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+  }
+  
+  .modal__body {
+    padding: 12px;
+  }
+  
+  .modal__footer {
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+  
+  .modal__footer .left,
+  .modal__footer .right {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .modal__footer .right {
+    flex-direction: column;
+  }
+  
+  .input, .select, .textarea {
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+  
+  .field {
+    gap: 6px;
+  }
+  
+  .badge {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  .steam-profile {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .steam-profile__avatar img {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .overlay__panel {
+    width: calc(100% - 16px);
+    margin: 10px auto;
+  }
+  
+  .overlay__body {
+    padding: 12px;
+    max-height: calc(100vh - 120px);
+  }
+  
+  .overlay__panel--demo {
+    height: calc(100vh - 20px);
+    margin: 10px;
+    width: calc(100% - 20px);
+  }
+  
+  .ban-detail-section {
+    padding: 12px;
+  }
+  
+  .evidence-file-item {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .evidence-file-item__actions {
+    width: 100%;
+    align-items: flex-start;
+  }
+  
+  .evidence-file-buttons {
+    flex-wrap: wrap;
+  }
+  
+  .content {
+    width: calc(100% - 16px);
+    margin: 12px auto;
+    gap: 12px;
+  }
+  
+  .footer {
+    width: calc(100% - 16px);
+    text-align: center;
+    padding: 0 8px;
+  }
+  
+  .community-ban-entry {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .community-ban-entry__status {
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .rowActions {
+    justify-content: flex-start;
+  }
+  
+  input[type="file"] {
+    font-size: 14px;
+  }
+  
+  input[type="file"]::-webkit-file-upload-button {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
