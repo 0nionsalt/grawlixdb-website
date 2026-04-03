@@ -2,6 +2,57 @@ const STORAGE_KEY = "tf2CheaterDb.entries.v1";
 // Steam API key is now handled by the Cloudflare Worker for security
 // const STEAM_API_KEY = "697576621005E7075600828CE6273B4F";
 
+// DOM elements cache
+const el = {
+  // Search and filter elements
+  q: document.getElementById('q'),
+  filterVerdict: document.getElementById('filterVerdict'),
+  sort: document.getElementById('sort'),
+  stats: document.getElementById('stats'),
+  rows: document.getElementById('rows'),
+  
+  // Buttons
+  btnAdd: document.getElementById('btnAdd'),
+  btnFetchProfile: document.getElementById('btnFetchProfile'),
+  btnDelete: document.getElementById('btnDelete'),
+  btnCancel: document.getElementById('btnCancel'),
+  
+  // Modal elements
+  modal: document.getElementById('modal'),
+  modalTitle: document.getElementById('modalTitle'),
+  modalClose: document.getElementById('modalClose'),
+  form: document.getElementById('form'),
+  id: document.getElementById('id'),
+  name: document.getElementById('name'),
+  steamId: document.getElementById('steamId'),
+  verdict: document.getElementById('verdict'),
+  lastSeen: document.getElementById('lastSeen'),
+  aliases: document.getElementById('aliases'),
+  evidence: document.getElementById('evidence'),
+  evidencePreview: document.getElementById('evidencePreview'),
+  notes: document.getElementById('notes'),
+  
+  // Steam profile elements
+  steamProfileInfo: document.getElementById('steamProfileInfo'),
+  steamAvatar: document.getElementById('steamAvatar'),
+  steamId64Display: document.getElementById('steamId64Display'),
+  steamName: document.getElementById('steamName'),
+  steamProfileUrl: document.getElementById('steamProfileUrl'),
+  
+  // Overlay elements
+  banOverlay: document.getElementById('banOverlay'),
+  overlayTitle: document.getElementById('overlayTitle'),
+  overlayClose: document.getElementById('overlayClose'),
+  overlayBody: document.getElementById('overlayBody'),
+  
+  // Demo overlay elements
+  demoOverlay: document.getElementById('demoOverlay'),
+  demoOverlayTitle: document.getElementById('demoOverlayTitle'),
+  demoOverlayClose: document.getElementById('demoOverlayClose'),
+  demoOverlayFileName: document.getElementById('demoOverlayFileName'),
+  demoOverlayFrame: document.getElementById('demoOverlayFrame')
+};
+
 // Random logo functionality
 function initRandomLogo() {
   const logos = [
@@ -26,8 +77,8 @@ function initRandomLogo() {
 }
 
 // Supabase configuration
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key';
+const SUPABASE_URL = 'https://cveqazxsxeixqmrfxenj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZXFhenhzeGVpeHFtcmZ4ZW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTgwNzQsImV4cCI6MjA4OTc3NDA3NH0.BzOKzksZcZPvpo0VLiFKysa1RMSKe45GW05lh0fVj1Q';
 
 // Initialize Supabase client
 let sbClient = null;
@@ -45,6 +96,9 @@ try {
 } catch (e) {
   sbClient = null;
 }
+
+if (sbClient) console.log("Supabase enabled: loading entries from database");
+else console.warn("Supabase disabled: falling back to localStorage");
 
 function loadEntriesFromLocalStorage() {
   try {
@@ -74,7 +128,7 @@ async function fetchSteamProfile(steamId) {
   }
 
   // Use Cloudflare Workers proxy - Steam API key is handled by the Worker
-  const proxyUrl = `https://nameless-bread-3fcd.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=REMOVED&steamids=${steamId64}`;
+  const proxyUrl = `https://grawlixdb-proxy.grawlixcinema.workers.dev/api/steam/ISteamUser/GetPlayerSummaries/v0002/?key=REMOVED&steamids=${steamId64}`;
   
   try {
     console.log('Using Cloudflare Worker proxy:', proxyUrl);
@@ -231,6 +285,129 @@ function formatDateTime(iso) {
   return d.toLocaleString();
 }
 
+function dbRowToEntry(row) {
+  if (!row) return row;
+  return {
+    id: row.id,
+    name: row.name,
+    steamId: row.steam_id,
+    verdict: row.verdict,
+    lastSeen: row.last_seen ?? "",
+    aliases: row.aliases ?? [],
+    evidence: row.evidence ?? [],
+    notes: row.notes ?? "",
+    steamProfile: row.steam_profile ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function entryToDbRow(entry) {
+  if (!entry) return entry;
+  return {
+    id: entry.id,
+    name: entry.name,
+    steam_id: entry.steamId,
+    verdict: entry.verdict,
+    last_seen: entry.lastSeen || null,
+    aliases: entry.aliases ?? [],
+    evidence: entry.evidence ?? [],
+    notes: entry.notes || null,
+    steam_profile: entry.steamProfile ?? null,
+    created_at: entry.createdAt || null,
+    updated_at: entry.updatedAt || null,
+  };
+}
+
+// Upload evidence files to Supabase Storage and return file metadata with URLs
+async function uploadEvidenceFiles(entryId, files) {
+  if (!sbClient || !files || files.length === 0) return [];
+
+  const uploaded = [];
+  for (const file of files) {
+    try {
+      const filePath = `${entryId}/${file.name}`;
+      // For .dem files, try without contentType first, then with fallbacks
+      const isDemFile = file.name.toLowerCase().endsWith('.dem');
+      
+      let data, error;
+      if (isDemFile) {
+        // Try without contentType first
+        ({ data, error } = await sbClient.storage
+          .from('tf2-demo-files')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          }));
+        
+        // If that fails, try with application/octet-stream
+        if (error) {
+          console.log('Retrying .dem file with application/octet-stream...');
+          ({ data, error } = await sbClient.storage
+            .from('tf2-demo-files')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'application/octet-stream',
+            }));
+        }
+      } else {
+        // For non-dem tf2-demo-files, use provided type or fallback
+        const contentType = file.type || 'application/octet-stream';
+        ({ data, error } = await sbClient.storage
+          .from('tf2-demo-files')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType,
+          }));
+      }
+
+      if (error) {
+        console.error('Error uploading file:', file.name, error);
+        continue;
+      }
+
+      const { data: { publicUrl } } = sbClient.storage
+        .from('tf2-demo-files')
+        .getPublicUrl(filePath);
+
+      uploaded.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        path: filePath,
+        publicUrl,
+      });
+    } catch (err) {
+      console.error('Unexpected error uploading file:', file.name, err);
+    }
+  }
+  return uploaded;
+}
+
+// Update entryToDbRow to handle file uploads
+async function prepareEntryWithFiles(entry, files) {
+  const evidence = files && files.length > 0
+    ? await uploadEvidenceFiles(entry.id, files)
+    : (entry.evidence ?? []);
+
+  return {
+    id: entry.id,
+    name: entry.name,
+    steam_id: entry.steamId,
+    verdict: entry.verdict,
+    last_seen: entry.lastSeen || null,
+    aliases: entry.aliases ?? [],
+    evidence,
+    notes: entry.notes || null,
+    steam_profile: entry.steamProfile ?? null,
+    created_at: entry.createdAt || null,
+    updated_at: entry.updatedAt || null,
+  };
+}
+
 // Supabase database functions
 async function loadEntries() {
   if (!sbClient) return loadEntriesFromLocalStorage();
@@ -242,13 +419,13 @@ async function loadEntries() {
     
     if (error) {
       console.error('Error loading entries:', error);
-      return [];
+      throw new Error(`Supabase select failed: ${error.message || error}`);
     }
     
-    return data || [];
+    return (data || []).map(dbRowToEntry);
   } catch (error) {
     console.error('Error loading entries:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -262,16 +439,17 @@ async function saveEntries(entries) {
     const { error: deleteError } = await sbClient
       .from('entries')
       .delete()
-      .neq('id', 'neq.0'); // Delete all records
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
     
     if (deleteError) {
       console.error('Error clearing entries:', deleteError);
     }
     
     // Then insert all entries
+    const rows = (entries || []).map(entryToDbRow);
     const { data: insertData, error: insertError } = await sbClient
       .from('entries')
-      .insert(entries);
+      .insert(rows);
     
     if (insertError) {
       console.error('Error saving entries:', insertError);
@@ -293,15 +471,18 @@ async function upsertEntry(entry) {
     return entry;
   }
   try {
+    const row = await prepareEntryWithFiles(entry, entry._files);
     const { data, error } = await sbClient
       .from('entries')
-      .upsert(entry, { onConflict: 'merge' });
+      .upsert(row, { onConflict: 'id' })
+      .select('*')
+      .single();
     
     if (error) {
       console.error('Error upserting entry:', error);
     }
     
-    return data;
+    return dbRowToEntry(data);
   } catch (error) {
     console.error('Error upserting entry:', error);
   }
@@ -314,6 +495,32 @@ async function deleteEntryById(id) {
     return;
   }
   try {
+    // First, get entry to find associated files
+    const { data: entry, error: fetchError } = await sbClient
+      .from('entries')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching entry for file cleanup:', fetchError);
+    } else if (entry?.evidence?.length) {
+      // Delete associated files from Storage
+      const filesToDelete = entry.evidence.map(f => f.path).filter(Boolean);
+      if (filesToDelete.length > 0) {
+        const { error: deleteFilesError } = await sbClient.storage
+          .from('tf2-demo-files')
+          .remove(filesToDelete);
+        
+        if (deleteFilesError) {
+          console.error('Error deleting files from storage:', deleteFilesError);
+        } else {
+          console.log('Deleted', filesToDelete.length, 'files from storage');
+        }
+      }
+    }
+
+    // Then delete the entry
     const { error } = await sbClient
       .from('entries')
       .delete()
@@ -327,105 +534,7 @@ async function deleteEntryById(id) {
   }
 }
 
-function safeUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
-function badgeClass(verdict) {
-  if (verdict === "confirmed") return "badge badge--confirmed";
-  if (verdict === "cleared") return "badge badge--cleared";
-  return "badge badge--suspected";
-}
-
-function entryMatches(entry, q, verdict) {
-  if (verdict && entry.verdict !== verdict) return false;
-  if (!q) return true;
-  const hay = [
-    entry.name,
-    entry.steamId,
-    ...(entry.aliases ?? []),
-    entry.lastSeen,
-    entry.notes,
-    ...(entry.evidence ?? []),
-  ]
-    .join("\n")
-    .toLowerCase();
-  return hay.includes(q);
-}
-
-function sortEntries(entries, sort) {
-  const copy = [...entries];
-  if (sort === "nameAsc") {
-    copy.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
-    return copy;
-  }
-  if (sort === "createdDesc") {
-    copy.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-    return copy;
-  }
-  copy.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
-  return copy;
-}
-
-window.addEventListener("error", (ev) => {
-  console.error("Uncaught error:", ev.error || ev.message);
-});
-
-window.addEventListener("unhandledrejection", (ev) => {
-  console.error("Unhandled promise rejection:", ev.reason);
-});
-
-const el = {
-  rows: document.getElementById("rows"),
-  q: document.getElementById("q"),
-  filterVerdict: document.getElementById("filterVerdict"),
-  sort: document.getElementById("sort"),
-  stats: document.getElementById("stats"),
-
-  btnAdd: document.getElementById("btnAdd"),
-  btnSteamLogin: document.getElementById("btnSteamLogin"),
-
-  modal: document.getElementById("modal"),
-  modalTitle: document.getElementById("modalTitle"),
-  modalClose: document.getElementById("modalClose"),
-  btnCancel: document.getElementById("btnCancel"),
-  btnDelete: document.getElementById("btnDelete"),
-
-  form: document.getElementById("form"),
-  id: document.getElementById("id"),
-  name: document.getElementById("name"),
-  steamId: document.getElementById("steamId"),
-  verdict: document.getElementById("verdict"),
-  lastSeen: document.getElementById("lastSeen"),
-  aliases: document.getElementById("aliases"),
-  evidence: document.getElementById("evidence"),
-  evidencePreview: document.getElementById("evidencePreview"),
-  notes: document.getElementById("notes"),
-
-  btnFetchProfile: document.getElementById("btnFetchProfile"),
-  steamProfileInfo: document.getElementById("steamProfileInfo"),
-  steamAvatar: document.getElementById("steamAvatar"),
-  steamId64Display: document.getElementById("steamId64Display"),
-  steamName: document.getElementById("steamName"),
-  steamProfileUrl: document.getElementById("steamProfileUrl"),
-
-  banOverlay: document.getElementById("banOverlay"),
-  overlayTitle: document.getElementById("overlayTitle"),
-  overlayClose: document.getElementById("overlayClose"),
-  overlayBody: document.getElementById("overlayBody"),
-};
-
-if (!el.btnAdd) {
-  alert("Init error: #btnAdd not found in DOM. Make sure you're opening the right index.html.");
-}
-
-let currentFiles = [];
+// ...
 
 function updateEvidencePreview() {
   el.evidencePreview.innerHTML = '';
@@ -459,21 +568,39 @@ function updateEvidencePreview() {
   });
 }
 
-function removeFile(index) {
-  currentFiles.splice(index, 1);
-  updateEvidencePreview();
+// ...
+
+function openDemoOverlay(file) {
+  if (!file?.name || !file.name.toLowerCase().endsWith(".dem")) {
+    alert("Only .dem files can be viewed in demo player.");
+    return;
+  }
+
+  if (!el.demoOverlay) {
+    alert("Demo viewer overlay is missing from the page.");
+    return;
+  }
+
+  if (el.demoOverlayFileName) el.demoOverlayFileName.textContent = file.name;
+  if (el.demoOverlayTitle) el.demoOverlayTitle.textContent = "Demo Viewer";
+
+  if (el.demoOverlayFrame) {
+    el.demoOverlayFrame.src = "https://dribble.tf/";
+  }
+
+  el.demoOverlay.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function closeDemoOverlay() {
+  if (!el.demoOverlay) return;
+  el.demoOverlay.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+  if (el.demoOverlayFrame) el.demoOverlayFrame.src = "about:blank";
 }
 
 function viewDemoInDribble(file) {
-// For demo files, we can open them in dribble.tf
-if (file.name.toLowerCase().endsWith('.dem')) {
-  // Since we can't store the actual file data due to localStorage limits,
-  // we'll open dribble.tf and let the user upload the file manually
-  alert(`To view this demo file:\n\n1. Open dribble.tf in a new tab\n2. Upload the file "${file.name}" manually\n\nThis is required because demo files are too large to store in browser storage.`);
-  window.open('https://dribble.tf/', '_blank');
-} else {
-  alert('Only .dem files can be viewed in the demo player.');
-}
+  openDemoOverlay(file);
 }
 
 function downloadDemo(file) {
@@ -510,18 +637,6 @@ function openModal(mode, entry) {
   // Reset Steam profile info
   el.steamProfileInfo.style.display = "none";
   el.steamAvatar.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-  el.steamId64Display.textContent = "";
-  el.steamName.textContent = "";
-  el.steamProfileUrl.href = "#";
-  el.steamProfileUrl.textContent = "";
-  
-  // Reset files and clear file input
-  currentFiles = [];
-  updateEvidencePreview();
-  el.evidence.value = ''; // Clear the file input
-  
-  // Reset name field
-  el.name.value = "";
   el.name.removeAttribute('readonly');
   el.name.classList.remove('input--readonly');
 
@@ -708,11 +823,11 @@ function buildBanDetailsContent(entry) {
           </div>
           <div class="evidence-file-item__actions">
             <div class="evidence-file-item__type">
-              ${isDemoFile ? '📹 Demo File' : '🎬 Video File'}
+              ${isDemoFile ? 'Demo File' : 'Video File'}
             </div>
             ${isDemoFile ? `
               <div class="evidence-file-buttons">
-                <button class="btn btn--primary btn--small" onclick="viewDemoInDribble(${JSON.stringify(file).replace(/"/g, '&quot;')})">
+                <button class="btn btn--primary btn--small" onclick="openDemoOverlay(${JSON.stringify(file).replace(/"/g, '&quot;')})">
                   View Demo
                 </button>
                 <button class="btn btn--secondary btn--small" onclick="downloadDemo(${JSON.stringify(file).replace(/"/g, '&quot;')})">
@@ -771,6 +886,50 @@ function buildBanDetailsContent(entry) {
   return `<div class="ban-details">${sections.join('')}</div>`;
 }
 
+function entryMatches(entry, query, verdictFilter) {
+  // If no query and no verdict filter, everything matches
+  if (!query && !verdictFilter) return true;
+  
+  // Check verdict filter
+  if (verdictFilter && entry.verdict !== verdictFilter) return false;
+  
+  // If no query, just check verdict
+  if (!query) return true;
+  
+  // Search in name, steamId, aliases, notes, and evidence
+  const searchText = [
+    entry.name || '',
+    entry.steamId || '',
+    (entry.aliases || []).join(' '),
+    entry.notes || '',
+    (entry.evidence || []).map(e => e.name || '').join(' ')
+  ].join(' ').toLowerCase();
+  
+  return searchText.includes(query);
+}
+
+function sortEntries(entries, sortOption) {
+  const sorted = [...entries];
+  
+  switch (sortOption) {
+    case 'nameAsc':
+      return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    case 'createdDesc':
+      return sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    case 'updatedDesc':
+    default:
+      return sorted.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  }
+}
+
+function badgeClass(verdict) {
+  const v = normalize(verdict).toLowerCase();
+  if (v === "confirmed" || v === "cleared" || v === "suspected") {
+    return `badge badge--${v}`;
+  }
+  return "badge badge--suspected";
+}
+
 async function render() {
   try {
     const q = normalize(el.q.value).toLowerCase();
@@ -802,8 +961,13 @@ async function render() {
       const nameLink = document.createElement("button");
       nameLink.className = "nameLink";
       nameLink.innerHTML = `
-        <div>${escapeHtml(entry.name ?? "")}</div>
-        <div class="small">${escapeHtml((entry.aliases ?? []).join(", "))}</div>
+        <div class="name-row">
+          <img class="name-avatar" src="${entry.steamProfile?.avatarUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}" alt="Avatar" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'">
+          <div class="name-info">
+            <div>${escapeHtml(entry.name ?? "")}</div>
+            <div class="small">${escapeHtml((entry.aliases ?? []).join(", "))}</div>
+          </div>
+        </div>
       `;
       nameLink.addEventListener("click", () => showBanDetails(entry));
       nameTd.appendChild(nameLink);
@@ -927,25 +1091,6 @@ function buildShareText(entry) {
   return lines.join("\n");
 }
 
-function handleSteamLogin() {
-  // Steam OpenID authentication URL
-  const realm = window.location.origin;
-  const returnUrl = `${realm}/steam-callback`;
-  const steamLoginUrl = `https://steamcommunity.com/openid/login?` +
-    `openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select&` +
-    `openid.identity=http://specs.openid.net/auth/2.0/identifier_select&` +
-    `openid.mode=checkid_setup&` +
-    `openid.ns=http://specs.openid.net/auth/2.0&` +
-    `openid.realm=${encodeURIComponent(realm)}&` +
-    `openid.return_to=${encodeURIComponent(returnUrl)}`;
-  
-  // For demo purposes, we'll show a message since full OpenID requires server-side handling
-  alert("Steam login requires server-side OpenID authentication.\n\nThis would typically:\n1. Redirect to Steam for authentication\n2. Handle the callback on your server\n3. Extract the SteamID64 from the response\n4. Create a session for the user\n\nFor now, you can manually enter your SteamID and use 'Fetch Steam Profile'.");
-  
-  // In a real implementation, you would redirect:
-  // window.location.href = steamLoginUrl;
-}
-
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
   initRandomLogo();
@@ -953,7 +1098,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 el.btnAdd.addEventListener("click", () => openModal("add"));
-el.btnSteamLogin.addEventListener("click", handleSteamLogin);
 el.btnFetchProfile.addEventListener("click", handleFetchProfile);
 
 // File input event listener
@@ -964,20 +1108,20 @@ el.evidence.addEventListener("change", async (ev) => {
     const extension = file.name.toLowerCase().split('.').pop();
     return extension === 'mp4' || extension === 'dem';
   });
+  const maxBytes = 50 * 1024 * 1024;
+  const sizeOkFiles = allowedFiles.filter((f) => (f?.size ?? 0) <= maxBytes);
   
   if (allowedFiles.length !== files.length) {
     alert('Only .mp4 and .dem files are allowed for evidence.');
   }
+
+  if (sizeOkFiles.length !== allowedFiles.length) {
+    alert('Some files were too large. Max 50MB per file.');
+  }
   
-  // Don't read file data to avoid localStorage quota issues
-  // Just store the file metadata
-  currentFiles = allowedFiles.map(file => ({
-    name: file.name,
-    size: file.size,
-    type: file.type,
-    lastModified: file.lastModified,
-    data: null
-  }));
+  // Keep real File objects in-memory so Supabase Storage can upload them.
+  // We still never store file bytes in localStorage.
+  currentFiles = sizeOkFiles;
   
   updateEvidencePreview();
 });
@@ -991,6 +1135,10 @@ el.btnCancel.addEventListener("click", closeModal);
 
 el.overlayClose.addEventListener("click", closeBanOverlay);
 
+if (el.demoOverlayClose) {
+  el.demoOverlayClose.addEventListener("click", closeDemoOverlay);
+}
+
 el.modal.addEventListener("click", (ev) => {
   const t = ev.target;
   if (t?.dataset?.close) closeModal();
@@ -1001,10 +1149,18 @@ el.banOverlay.addEventListener("click", (ev) => {
   if (t?.dataset?.close === "overlay") closeBanOverlay();
 });
 
+if (el.demoOverlay) {
+  el.demoOverlay.addEventListener("click", (ev) => {
+    const t = ev.target;
+    if (t?.dataset?.close === "demo") closeDemoOverlay();
+  });
+}
+
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") {
     if (el.modal.getAttribute("aria-hidden") === "false") closeModal();
     if (el.banOverlay.getAttribute("aria-hidden") === "false") closeBanOverlay();
+    if (el.demoOverlay && el.demoOverlay.getAttribute("aria-hidden") === "false") closeDemoOverlay();
   }
 });
 
@@ -1023,10 +1179,13 @@ el.form.addEventListener("submit", async (ev) => {
     notes: normalize(el.notes.value),
     createdAt: nowIso(),
     updatedAt: nowIso(),
+    _files: currentFiles, // temporary field for upload
   };
 
   try {
     await upsertEntry(entry);
+    // Force a small delay to ensure the database has time to update
+    await new Promise(resolve => setTimeout(resolve, 100));
     await render();
     closeModal();
   } catch (error) {
